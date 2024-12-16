@@ -196,7 +196,7 @@ public class GuessArena extends BaseArena {
 
   public void broadcastPlayerGuessed(Player player) {
     int guesserPos = whoGuessed.size() + 1;
-    var event = new PlayerGuessRightEvent(player, guesserPos);
+    var event = new PlayerGuessRightEvent(player,this.getPlayers(), guesserPos);
     Bukkit.getPluginManager().callEvent(event);
 
     int bonusAmount = getPlugin().getConfig().getInt("Guessing-Points." + (whoGuessed.size() + 1), 0);
