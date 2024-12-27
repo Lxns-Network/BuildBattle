@@ -47,7 +47,7 @@ dependencies {
 }
 
 group = "plugily.projects"
-version = "5.0.13-LXNET"
+version = "5.0.15-LXNET"
 description = "BuildBattle"
 
 java {

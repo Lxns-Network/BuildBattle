@@ -24,6 +24,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import plugily.projects.buildbattle.api.event.guess.GuessRoundEndEvent;
 import plugily.projects.buildbattle.api.event.guess.PlayerGuessRightEvent;
 import plugily.projects.buildbattle.api.event.guess.PlayerThemeGuessEvent;
 import plugily.projects.buildbattle.arena.managers.plots.Plot;
@@ -191,12 +192,13 @@ public class GuessArena extends BaseArena {
       new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_GUESSED").asKey().arena(this).sendArena();
 
       getPlugin().getRewardsHandler().performReward(this, getPlugin().getRewardsHandler().getRewardType("GUESS_ALL"));
+      Bukkit.getPluginManager().callEvent(new GuessRoundEndEvent(this, true));
     }
   }
 
   public void broadcastPlayerGuessed(Player player) {
     int guesserPos = whoGuessed.size() + 1;
-    var event = new PlayerGuessRightEvent(player,this.getPlayers(), guesserPos);
+    var event = new PlayerGuessRightEvent(player,this.getPlayers(), guesserPos,this);
     Bukkit.getPluginManager().callEvent(event);
 
     int bonusAmount = getPlugin().getConfig().getInt("Guessing-Points." + (whoGuessed.size() + 1), 0);

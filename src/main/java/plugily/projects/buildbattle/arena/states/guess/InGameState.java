@@ -25,6 +25,7 @@ import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
+import plugily.projects.buildbattle.api.event.guess.GuessRoundEndEvent;
 import plugily.projects.buildbattle.arena.BaseArena;
 import plugily.projects.buildbattle.arena.GuessArena;
 import plugily.projects.buildbattle.arena.managers.plots.Plot;
@@ -95,6 +96,7 @@ public class InGameState extends PluginInGameState {
           new TitleBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_TITLE").asKey().value(pluginArena.getCurrentBBTheme().getTheme()).arena(pluginArena).sendArena();
 
           setArenaTimer(getPlugin().getConfig().getInt("Time-Manager." + pluginArena.getArenaType().getPrefix() + ".Round-Delay"));
+          Bukkit.getPluginManager().callEvent(new GuessRoundEndEvent((GuessArena) arena, false));
           pluginArena.setArenaInGameState(BaseArena.ArenaInGameState.PLOT_VOTING);
         }
         //}

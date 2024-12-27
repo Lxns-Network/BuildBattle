@@ -4,6 +4,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
+import plugily.projects.buildbattle.arena.GuessArena;
 
 import java.util.Collection;
 import java.util.List;
@@ -14,11 +15,17 @@ public class PlayerGuessRightEvent extends Event {
     private final Player player;
     private final Collection<Player> builders;
     private final int guesserPosition;
+    private final GuessArena arena;
 
-    public PlayerGuessRightEvent(Player player, Collection<Player> builders, int guesserPosition) {
+    public PlayerGuessRightEvent(Player player, Collection<Player> builders, int guesserPosition, GuessArena arena) {
         this.player = player;
         this.builders = builders;
         this.guesserPosition = guesserPosition;
+        this.arena = arena;
+    }
+
+    public GuessArena getArena() {
+        return arena;
     }
 
     public Player getPlayer() {
