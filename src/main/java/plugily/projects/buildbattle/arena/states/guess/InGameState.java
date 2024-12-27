@@ -254,7 +254,7 @@ public class InGameState extends PluginInGameState {
       themesFilter = themes;
     }
     String themeName = themesFilter.get(getPlugin().getRandom().nextInt(themesFilter.size()));
-    BBTheme theme = new BBTheme(themeName, difficulty);
+    BBTheme theme = new BBTheme(List.of(themeName.split(";")), difficulty);
     pluginArena.getPlayedThemes().add(themeName);
     return theme;
   }

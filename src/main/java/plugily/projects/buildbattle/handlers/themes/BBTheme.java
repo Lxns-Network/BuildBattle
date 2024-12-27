@@ -20,18 +20,25 @@
 
 package plugily.projects.buildbattle.handlers.themes;
 
+import java.util.List;
+
 public class BBTheme {
 
-  private final String theme;
+  private final List<String> theme;
   private final Difficulty difficulty;
 
-  public BBTheme(String theme, Difficulty difficulty) {
-    this.theme = theme == null ? "" : theme;
+  public BBTheme(List<String> theme, Difficulty difficulty) {
+    this.theme = theme.stream().map(it->it.toLowerCase().trim()).toList();
     this.difficulty = difficulty;
   }
 
   public String getTheme() {
-    return theme;
+    return theme.get(0);
+  }
+
+  public boolean isRight(String answer){
+      answer = answer.toLowerCase();
+      return theme.stream().anyMatch(answer::contains);
   }
 
   public Difficulty getDifficulty() {
