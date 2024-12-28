@@ -18,6 +18,7 @@ public class PlayerGuessRightEvent extends Event {
     private final GuessArena arena;
 
     public PlayerGuessRightEvent(Player player, Collection<Player> builders, int guesserPosition, GuessArena arena) {
+        super(true);
         this.player = player;
         this.builders = builders;
         this.guesserPosition = guesserPosition;
