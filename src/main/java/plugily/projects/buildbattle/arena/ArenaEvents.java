@@ -82,10 +82,19 @@ public class ArenaEvents extends PluginArenaEvents {
 
     Plot buildPlot = arena.getPlotManager().getPlot(event.getPlayer());
 
+    if(buildPlot != null && !buildPlot.getCuboid().isIn(event.getBlock().getLocation())){
+      event.setCancelled(true);
+    }
+
+    if(arena instanceof GuessArena && ((GuessArena) arena).getCurrentBuilders().contains(event.getPlayer())) {
+      return;
+    }
+
     if(buildPlot != null && buildPlot.getCuboid() != null && buildPlot.getCuboid().isIn(event.getBlock().getLocation())) {
       plugin.getUserManager().getUser(event.getPlayer()).adjustStatistic("BLOCKS_BROKEN", 1);
       return;
     }
+
     event.setCancelled(true);
   }
 
@@ -606,7 +615,7 @@ public class ArenaEvents extends PluginArenaEvents {
       new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_GUESS_BUILDER").asKey().arena(gameArena).player(player).sendPlayer();
       return;
     }
-    if(gameArena.getCurrentBBTheme() == null || gameArena.getCurrentBBTheme().isRight(event.getMessage())) {
+    if(gameArena.getCurrentBBTheme() == null || !gameArena.getCurrentBBTheme().isRight(event.getMessage())) {
       return;
     }
     event.setCancelled(true);

@@ -25,6 +25,7 @@ import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
+import plugily.projects.buildbattle.Main;
 import plugily.projects.buildbattle.api.event.guess.GuessRoundEndEvent;
 import plugily.projects.buildbattle.arena.BaseArena;
 import plugily.projects.buildbattle.arena.GuessArena;
@@ -50,254 +51,263 @@ import java.util.List;
  */
 public class InGameState extends PluginInGameState {
 
-  @Override
-  public void handleCall(PluginArena arena) {
-    super.handleCall(arena);
-    GuessArena pluginArena = (GuessArena) getPlugin().getArenaRegistry().getArena(arena.getId());
-    if(pluginArena == null) {
-      return;
-    }
-    switch(pluginArena.getArenaInGameState()) {
-      case THEME_VOTING:
-        if(pluginArena.getBuildPlot() == null) {
-          pluginArena.setNextPlot();
-          new TitleBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_BEING_SELECTED").asKey().arena(pluginArena).sendArena();
-          openThemeSelectionInventoryToCurrentBuilder(pluginArena);
-          break;
+    @Override
+    public void handleCall(PluginArena arena) {
+        super.handleCall(arena);
+        GuessArena pluginArena = (GuessArena) getPlugin().getArenaRegistry().getArena(arena.getId());
+        if (pluginArena == null) {
+            return;
         }
+        switch (pluginArena.getArenaInGameState()) {
+            case THEME_VOTING:
+                if (pluginArena.getBuildPlot() == null) {
+                    pluginArena.setNextPlot();
+                    new TitleBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_BEING_SELECTED").asKey().arena(pluginArena).sendArena();
+                    Bukkit.getScheduler().runTaskLater(getPlugin(), () -> {
+                        openThemeSelectionInventoryToCurrentBuilder(pluginArena);
+                    },10L);
+                    break;
+                }
 
-        if(arena.getTimer() <= 0 || pluginArena.isCurrentThemeSet()) {
-          forceSetTheme(pluginArena);
+                if (arena.getTimer() <= 0 || pluginArena.isCurrentThemeSet()) {
+                    forceSetTheme(pluginArena);
 
-          new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_ROUND").asKey().integer(pluginArena.getRound()).arena(pluginArena).sendArena();
-          new TitleBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_GUESS_TITLE").asKey().arena(pluginArena).sendArena();
+                    new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_ROUND").asKey().integer(pluginArena.getRound()).arena(pluginArena).sendArena();
+                    new TitleBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_GUESS_TITLE").asKey().arena(pluginArena).sendArena();
 
-          Bukkit.getScheduler().runTaskLater(getPlugin(), () -> pluginArena.getCurrentBuilders().forEach(player -> player.setGameMode(GameMode.CREATIVE)), 40);
+                    Bukkit.getScheduler().runTaskLater(getPlugin(), () -> pluginArena.getCurrentBuilders().forEach(player -> player.setGameMode(GameMode.CREATIVE)), 40);
 
-          setArenaTimer(getPlugin().getConfig().getInt("Time-Manager." + pluginArena.getArenaType().getPrefix() + ".In-Game"));
-          pluginArena.setArenaInGameState(BaseArena.ArenaInGameState.BUILD_TIME);
-          break;
-        }
-        break;
-      case BUILD_TIME:
-        // check not needed anymore
-        // if(pluginArena.isCurrentThemeSet()) {
-        int timer = arena.getTimer();
+                    setArenaTimer(getPlugin().getConfig().getInt("Time-Manager." + pluginArena.getArenaType().getPrefix() + ".In-Game"));
+                    pluginArena.setArenaInGameState(BaseArena.ArenaInGameState.BUILD_TIME);
+                    break;
+                }
+                break;
+            case BUILD_TIME:
+                // check not needed anymore
+                // if(pluginArena.isCurrentThemeSet()) {
+                int timer = arena.getTimer();
 
-        if(timer <= 90) {
-          if(timer == 90) {
-            new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_CHARS").asKey().arena(pluginArena).integer(pluginArena.getCurrentBBTheme().getTheme().length()).sendArena();
-          }
-          sendThemeHints(arena, pluginArena);
-        }
-        if(timer <= 0) {
-          //not all guessed
-          new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_WAS").asKey().value(pluginArena.getCurrentBBTheme().getTheme()).arena(pluginArena).sendArena();
-          new TitleBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_TITLE").asKey().value(pluginArena.getCurrentBBTheme().getTheme()).arena(pluginArena).sendArena();
+                if (timer <= 90) {
+                    if (timer == 90) {
+                        new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_CHARS").asKey().arena(pluginArena).integer(pluginArena.getCurrentBBTheme().getTheme().length()).sendArena();
+                    }
+                    sendThemeHints(arena, pluginArena);
+                }
+                if (timer <= 0) {
+                    //not all guessed
+                    new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_WAS").asKey().value(pluginArena.getCurrentBBTheme().getTheme()).arena(pluginArena).sendArena();
+                    new TitleBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_TITLE").asKey().value(pluginArena.getCurrentBBTheme().getTheme()).arena(pluginArena).sendArena();
 
-          setArenaTimer(getPlugin().getConfig().getInt("Time-Manager." + pluginArena.getArenaType().getPrefix() + ".Round-Delay"));
-          Bukkit.getPluginManager().callEvent(new GuessRoundEndEvent((GuessArena) arena, false));
-          pluginArena.setArenaInGameState(BaseArena.ArenaInGameState.PLOT_VOTING);
-        }
-        //}
-        handleBuildTime(pluginArena);
-        break;
-      case PLOT_VOTING:
-        if(pluginArena.getRound() + 1 > pluginArena.getPlotList().size() * pluginArena.getArenaOption("GTB_ROUNDS_PER_PLOT")) {
-          pluginArena.calculateWinnerPlot();
-          adjustStatistics(pluginArena);
+                    setArenaTimer(getPlugin().getConfig().getInt("Time-Manager." + pluginArena.getArenaType().getPrefix() + ".Round-Delay"));
+                    var currentBuilders = pluginArena.getCurrentBuilders();
+                    var left = new ArrayList<>(pluginArena.getPlayersLeft());
+                    var guessed = new ArrayList<>(pluginArena.getWhoGuessed());
+                    Bukkit.getScheduler().runTask(getPlugin(), () -> {
+                        Bukkit.getPluginManager().callEvent(new GuessRoundEndEvent((GuessArena) arena, currentBuilders, left, guessed,false));
+                    });
+                    pluginArena.setArenaInGameState(BaseArena.ArenaInGameState.PLOT_VOTING);
+                }
+                //}
+                handleBuildTime(pluginArena);
+                break;
+            case PLOT_VOTING:
+                if (pluginArena.getRound() + 1 > pluginArena.getPlotList().size() * pluginArena.getArenaOption("GTB_ROUNDS_PER_PLOT")) {
+                    pluginArena.calculateWinnerPlot();
+                    adjustStatistics(pluginArena);
 
-          pluginArena.teleportToWinnerPlot(); //todo save built plot from winner
-          pluginArena.executeEndRewards();
-          getPlugin().getArenaManager().stopGame(false, arena);
-        }
+                    pluginArena.teleportToWinnerPlot(); //todo save built plot from winner
+                    pluginArena.executeEndRewards();
+                    getPlugin().getArenaManager().stopGame(false, arena);
+                }
 //round delay
-        if(arena.getTimer() <= 0) {
-          pluginArena.resetBuildPlot();
-          setArenaTimer(getPlugin().getConfig().getInt("Time-Manager." + pluginArena.getArenaType().getPrefix() + ".Voting.Theme"));
-          pluginArena.setArenaInGameState(BaseArena.ArenaInGameState.THEME_VOTING);
+                if (arena.getTimer() <= 0) {
+                    pluginArena.resetBuildPlot();
+                    setArenaTimer(getPlugin().getConfig().getInt("Time-Manager." + pluginArena.getArenaType().getPrefix() + ".Voting.Theme"));
+                    pluginArena.setArenaInGameState(BaseArena.ArenaInGameState.THEME_VOTING);
+                }
+                break;
+            default:
+                break;
         }
-        break;
-      default:
-        break;
-    }
-    // no players - stop game
-    if(!pluginArena.enoughPlayersToContinue()) {
-      getPlugin().getArenaManager().stopGame(true, pluginArena);
-    }
-  }
-
-  private void sendThemeHints(PluginArena arena, GuessArena pluginArena) {
-    for(Player player : arena.getPlayers()) {
-      if(pluginArena.getCurrentBuilders().contains(player)) {
-        continue;
-      }
-      if(pluginArena.getWhoGuessed().contains(player)) {
-        getPlugin().getActionBarManager().addActionBar(player, new ActionBar(new MessageBuilder(pluginArena.getCurrentBBTheme().getTheme()), ActionBar.ActionBarType.DISPLAY));
-        continue;
-      }
-      int themeLength = pluginArena.getCurrentBBTheme().getTheme().length();
-      List<Integer> charsAt = new ArrayList<>(themeLength);
-
-      for(int i = 0; i < themeLength; i++) {
-        if(!pluginArena.getRemovedCharsAt().contains(i)) {
-          charsAt.add(i);
+        // no players - stop game
+        if (!pluginArena.enoughPlayersToContinue()) {
+            getPlugin().getArenaManager().stopGame(true, pluginArena);
         }
-      }
+    }
 
-      if(themeLength - pluginArena.getRemovedCharsAt().size() > 2) {
-        int timer = arena.getTimer();
+    private void sendThemeHints(PluginArena arena, GuessArena pluginArena) {
+        for (Player player : arena.getPlayers()) {
+            if (pluginArena.getCurrentBuilders().contains(player)) {
+                continue;
+            }
+            if (pluginArena.getWhoGuessed().contains(player)) {
+                getPlugin().getActionBarManager().addActionBar(player, new ActionBar(new MessageBuilder(pluginArena.getCurrentBBTheme().getTheme()), ActionBar.ActionBarType.DISPLAY));
+                continue;
+            }
+            int themeLength = pluginArena.getCurrentBBTheme().getTheme().length();
+            List<Integer> charsAt = new ArrayList<>(themeLength);
 
-        if(timer % 10 == 0 && timer <= 70) {
-          pluginArena.getRemovedCharsAt().add(charsAt.get(charsAt.size() == 1 ? 0 : pluginArena.getPlugin().getRandom().nextInt(charsAt.size())));
-          continue;
+            for (int i = 0; i < themeLength; i++) {
+                if (!pluginArena.getRemovedCharsAt().contains(i)) {
+                    charsAt.add(i);
+                }
+            }
+
+            if (themeLength - pluginArena.getRemovedCharsAt().size() > 2) {
+                int timer = arena.getTimer();
+
+                if (timer % 10 == 0 && timer <= 70) {
+                    pluginArena.getRemovedCharsAt().add(charsAt.get(charsAt.size() == 1 ? 0 : pluginArena.getPlugin().getRandom().nextInt(charsAt.size())));
+                    continue;
+                }
+            }
+
+            StringBuilder actionbar = new StringBuilder();
+            for (int i = 0; i < themeLength; i++) {
+                char charAt = pluginArena.getCurrentBBTheme().getTheme().charAt(i);
+
+                if (Character.isWhitespace(charAt)) {
+                    actionbar.append("  ");
+                    continue;
+                }
+                if (pluginArena.getRemovedCharsAt().contains(i)) {
+                    actionbar.append(charAt).append(' ');
+                    continue;
+                }
+                actionbar.append("_ ");
+            }
+            getPlugin().getActionBarManager().addActionBar(player, new ActionBar(new MessageBuilder(actionbar.toString()), ActionBar.ActionBarType.DISPLAY));
         }
-      }
+    }
 
-      StringBuilder actionbar = new StringBuilder();
-      for(int i = 0; i < themeLength; i++) {
-        char charAt = pluginArena.getCurrentBBTheme().getTheme().charAt(i);
-
-        if(Character.isWhitespace(charAt)) {
-          actionbar.append("  ");
-          continue;
+    private void forceSetTheme(GuessArena pluginArena) {
+        if (pluginArena.isCurrentThemeSet()) {
+            return;
         }
-        if(pluginArena.getRemovedCharsAt().contains(i)) {
-          actionbar.append(charAt).append(' ');
-          continue;
+        BBTheme.Difficulty difficulty = BBTheme.Difficulty.EASY;
+        switch (pluginArena.getPlugin().getRandom().nextInt(2 + 1)) {
+            case 1:
+                difficulty = BBTheme.Difficulty.MEDIUM;
+                break;
+            case 2:
+                difficulty = BBTheme.Difficulty.HARD;
+                break;
+            default:
+                break;
         }
-        actionbar.append("_ ");
-      }
-      getPlugin().getActionBarManager().addActionBar(player, new ActionBar(new MessageBuilder(actionbar.toString()), ActionBar.ActionBarType.DISPLAY));
-    }
-  }
-
-  private void forceSetTheme(GuessArena pluginArena) {
-    if(pluginArena.isCurrentThemeSet()) {
-      return;
-    }
-    BBTheme.Difficulty difficulty = BBTheme.Difficulty.EASY;
-    switch(pluginArena.getPlugin().getRandom().nextInt(2 + 1)) {
-      case 1:
-        difficulty = BBTheme.Difficulty.MEDIUM;
-        break;
-      case 2:
-        difficulty = BBTheme.Difficulty.HARD;
-        break;
-      default:
-        break;
-    }
-    setChosenTheme(pluginArena, getThemeByDifficulty(pluginArena, difficulty));
-  }
-
-  private void setChosenTheme(GuessArena pluginArena, BBTheme bbTheme) {
-    setTheme(pluginArena, bbTheme);
-    pluginArena.getCurrentBuilders().forEach(HumanEntity::closeInventory);
-    pluginArena.getCurrentBuilders().forEach(player ->
-        getPlugin().getActionBarManager().addActionBar(player, new ActionBar(new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_NAME").asKey().player(player).arena(pluginArena),
-            ActionBar.ActionBarType.DISPLAY)));
-  }
-
-
-  private void openThemeSelectionInventoryToCurrentBuilder(GuessArena pluginArena) {
-    if(pluginArena.getCurrentBuilders().isEmpty()) {
-      return;
+        setChosenTheme(pluginArena, getThemeByDifficulty(pluginArena, difficulty));
     }
 
-    pluginArena.getCurrentBuilders().forEach(HumanEntity::closeInventory);
-
-    NormalFastInv gui = new NormalFastInv(9 * 3, new MessageBuilder("MENU_THEME_GTB_INVENTORY").asKey().build());
-    gui.addClickHandler(inventoryClickEvent -> inventoryClickEvent.setCancelled(true));
-    gui.addCloseHandler(event -> {
-      if(!pluginArena.isCurrentThemeSet()) {
-        Bukkit.getScheduler().runTask(getPlugin(), () -> event.getPlayer().openInventory(event.getInventory()));
-      }
-    });
-
-
-    BBTheme easy = getThemeByDifficulty(pluginArena, BBTheme.Difficulty.EASY);
-    gui.setItem(11, new SimpleClickableItem(new ItemBuilder(Material.PAPER).name(getThemeItemName(pluginArena).value(easy.getTheme()).build())
-        .lore(getThemeItemLore(pluginArena).value(new MessageBuilder("MENU_THEME_GTB_DIFFICULTIES_EASY").asKey().build()).integer(easy.getDifficulty().getPointsReward()).build().split(";")).build(), event -> {
-      setChosenTheme(pluginArena, easy);
-    }));
-
-    BBTheme medium = getThemeByDifficulty(pluginArena, BBTheme.Difficulty.MEDIUM);
-    gui.setItem(13, new SimpleClickableItem(new ItemBuilder(Material.PAPER).name(getThemeItemName(pluginArena).value(medium.getTheme()).build())
-        .lore(getThemeItemLore(pluginArena).value(new MessageBuilder("MENU_THEME_GTB_DIFFICULTIES_MEDIUM").asKey().build()).integer(medium.getDifficulty().getPointsReward()).build().split(";")).build(), event -> {
-      setChosenTheme(pluginArena, medium);
-    }));
-
-    BBTheme hard = getThemeByDifficulty(pluginArena, BBTheme.Difficulty.HARD);
-    gui.setItem(15, new SimpleClickableItem(new ItemBuilder(Material.PAPER).name(getThemeItemName(pluginArena).value(hard.getTheme()).build())
-        .lore(getThemeItemLore(pluginArena).value(new MessageBuilder("MENU_THEME_GTB_DIFFICULTIES_HARD").asKey().build()).integer(hard.getDifficulty().getPointsReward()).build().split(";")).build(), event -> {
-      setChosenTheme(pluginArena, hard);
-    }));
-
-    getPlugin().getDebugger().debug("Opened Theme Selector for {0}", pluginArena.getCurrentBuilders().toString());
-    pluginArena.getCurrentBuilders().forEach(gui::open);
-  }
-
-  public MessageBuilder getThemeItemName(GuessArena pluginArena) {
-    return new MessageBuilder("MENU_THEME_GTB_ITEM_NAME").asKey().arena(pluginArena);
-  }
-
-  public MessageBuilder getThemeItemLore(GuessArena pluginArena) {
-    return new MessageBuilder("MENU_THEME_GTB_ITEM_LORE").asKey().arena(pluginArena);
-  }
-
-
-  private BBTheme getThemeByDifficulty(GuessArena pluginArena, BBTheme.Difficulty difficulty) {
-    List<String> themes = pluginArena.getPlugin().getThemeManager().getThemes(ThemeManager.GameThemes.getByDifficulty(difficulty));
-    List<String> themesFilter = new ArrayList<>(themes);
-    themesFilter.removeAll(pluginArena.getPlayedThemes());
-    if(themesFilter.isEmpty()) {
-      themesFilter = themes;
+    private void setChosenTheme(GuessArena pluginArena, BBTheme bbTheme) {
+        setTheme(pluginArena, bbTheme);
+        pluginArena.getCurrentBuilders().forEach(HumanEntity::closeInventory);
+        pluginArena.getCurrentBuilders().forEach(player -> {
+            var sb = new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_NAME").asKey().player(player).arena(pluginArena);
+            sb = new MessageBuilder(sb.build().replace("%arena_theme%", pluginArena.getTheme()));
+            getPlugin().getActionBarManager().addActionBar(player, new ActionBar(sb, ActionBar.ActionBarType.DISPLAY));
+        });
     }
-    String themeName = themesFilter.get(getPlugin().getRandom().nextInt(themesFilter.size()));
-    BBTheme theme = new BBTheme(List.of(themeName.split(";")), difficulty);
-    pluginArena.getPlayedThemes().add(themeName);
-    return theme;
-  }
 
-  private void setTheme(GuessArena pluginArena, BBTheme theme) {
-    pluginArena.setCurrentTheme(theme);
-  }
 
-  private void adjustStatistics(GuessArena pluginArena) {
-    for(Plot plot : pluginArena.getPlotManager().getTopPlotsOrder()) {
-      plot.getMembers().forEach(player -> {
-        IUser user = getPlugin().getUserManager().getUser(player);
+    private void openThemeSelectionInventoryToCurrentBuilder(GuessArena pluginArena) {
+        if (pluginArena.getCurrentBuilders().isEmpty()) {
+            return;
+        }
+
+        pluginArena.getCurrentBuilders().forEach(HumanEntity::closeInventory);
+
+        NormalFastInv gui = new NormalFastInv(9 * 3, new MessageBuilder("MENU_THEME_GTB_INVENTORY").asKey().build());
+        gui.addClickHandler(inventoryClickEvent -> inventoryClickEvent.setCancelled(true));
+        gui.addCloseHandler(event -> {
+            if (!pluginArena.isCurrentThemeSet()) {
+                Bukkit.getScheduler().runTaskLater(getPlugin(), () -> event.getPlayer().openInventory(event.getInventory()), 10L);
+            }
+        });
+
+
+        BBTheme easy = getThemeByDifficulty(pluginArena, BBTheme.Difficulty.EASY);
+        gui.setItem(11, new SimpleClickableItem(new ItemBuilder(Material.PAPER).name(getThemeItemName(pluginArena).value(easy.getTheme()).build())
+                .lore(getThemeItemLore(pluginArena).value(new MessageBuilder("MENU_THEME_GTB_DIFFICULTIES_EASY").asKey().build()).integer(easy.getDifficulty().getPointsReward()).build().split(";")).build(), event -> {
+            setChosenTheme(pluginArena, easy);
+        }));
+
+        BBTheme medium = getThemeByDifficulty(pluginArena, BBTheme.Difficulty.MEDIUM);
+        gui.setItem(13, new SimpleClickableItem(new ItemBuilder(Material.PAPER).name(getThemeItemName(pluginArena).value(medium.getTheme()).build())
+                .lore(getThemeItemLore(pluginArena).value(new MessageBuilder("MENU_THEME_GTB_DIFFICULTIES_MEDIUM").asKey().build()).integer(medium.getDifficulty().getPointsReward()).build().split(";")).build(), event -> {
+            setChosenTheme(pluginArena, medium);
+        }));
+
+        BBTheme hard = getThemeByDifficulty(pluginArena, BBTheme.Difficulty.HARD);
+        gui.setItem(15, new SimpleClickableItem(new ItemBuilder(Material.PAPER).name(getThemeItemName(pluginArena).value(hard.getTheme()).build())
+                .lore(getThemeItemLore(pluginArena).value(new MessageBuilder("MENU_THEME_GTB_DIFFICULTIES_HARD").asKey().build()).integer(hard.getDifficulty().getPointsReward()).build().split(";")).build(), event -> {
+            setChosenTheme(pluginArena, hard);
+        }));
+
+        getPlugin().getDebugger().debug("Opened Theme Selector for {0}", pluginArena.getCurrentBuilders().toString());
+        pluginArena.getCurrentBuilders().forEach(gui::open);
+    }
+
+    public MessageBuilder getThemeItemName(GuessArena pluginArena) {
+        return new MessageBuilder("MENU_THEME_GTB_ITEM_NAME").asKey().arena(pluginArena);
+    }
+
+    public MessageBuilder getThemeItemLore(GuessArena pluginArena) {
+        return new MessageBuilder("MENU_THEME_GTB_ITEM_LORE").asKey().arena(pluginArena);
+    }
+
+
+    private BBTheme getThemeByDifficulty(GuessArena pluginArena, BBTheme.Difficulty difficulty) {
+        List<String> themes = pluginArena.getPlugin().getThemeManager().getThemes(ThemeManager.GameThemes.getByDifficulty(difficulty));
+        List<String> themesFilter = new ArrayList<>(themes);
+        themesFilter.removeAll(pluginArena.getPlayedThemes());
+        if (themesFilter.isEmpty()) {
+            themesFilter = themes;
+        }
+        String themeName = themesFilter.get(getPlugin().getRandom().nextInt(themesFilter.size()));
+        BBTheme theme = new BBTheme(List.of(themeName.split(";")), difficulty);
+        pluginArena.getPlayedThemes().add(themeName);
+        return theme;
+    }
+
+    private void setTheme(GuessArena pluginArena, BBTheme theme) {
+        pluginArena.setCurrentTheme(theme);
+    }
+
+    private void adjustStatistics(GuessArena pluginArena) {
+        for (Plot plot : pluginArena.getPlotManager().getTopPlotsOrder()) {
+            plot.getMembers().forEach(player -> {
+                IUser user = getPlugin().getUserManager().getUser(player);
         /*
         //ToDo GTB stats
         if(plot.getPoints() > user.getStatistic("POINTS_HIGHEST")) {
           user.setStatistic("POINTS_HIGHEST", plot.getPoints());
         }
         */
-        user.adjustStatistic("POINTS_TOTAL", plot.getPoints());
-        if(plot == pluginArena.getWinnerPlot()) {
-          user.adjustStatistic("WINS", 1);
-        } else {
-          user.adjustStatistic("LOSES", 1);
-        }
-        getPlugin().getUserManager().addExperience(player, 5);
+                user.adjustStatistic("POINTS_TOTAL", plot.getPoints());
+                if (plot == pluginArena.getWinnerPlot()) {
+                    user.adjustStatistic("WINS", 1);
+                } else {
+                    user.adjustStatistic("LOSES", 1);
+                }
+                getPlugin().getUserManager().addExperience(player, 5);
         /*
         if(plot.getPoints() > user.getStatistic("POINTS_HIGHEST_WIN")) {
           user.setStatistic("POINTS_HIGHEST_WIN", plot.getPoints());
         }
         */
-      });
+            });
+        }
     }
-  }
 
-  private void handleBuildTime(GuessArena pluginArena) {
-    int timer = pluginArena.getTimer();
+    private void handleBuildTime(GuessArena pluginArena) {
+        int timer = pluginArena.getTimer();
 
-    for(int timers : getPlugin().getConfig().getIntegerList("Time-Manager.Time-Left-Intervals")) {
-      if(timers == timer) {
-        pluginArena.sendBuildLeftTimeMessage();
-        break;
-      }
+        for (int timers : getPlugin().getConfig().getIntegerList("Time-Manager.Time-Left-Intervals")) {
+            if (timers == timer) {
+                pluginArena.sendBuildLeftTimeMessage();
+                break;
+            }
+        }
+        pluginArena.checkPlayerOutSidePlot();
     }
-    pluginArena.checkPlayerOutSidePlot();
-  }
 }

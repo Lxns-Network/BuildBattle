@@ -28,6 +28,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 import plugily.projects.buildbattle.arena.BaseArena;
+import plugily.projects.buildbattle.arena.GuessArena;
 import plugily.projects.buildbattle.arena.managers.plots.Plot;
 import plugily.projects.buildbattle.handlers.menu.MenuOption;
 import plugily.projects.buildbattle.handlers.menu.OptionsRegistry;
@@ -62,6 +63,11 @@ public class FloorChangeOption {
         BaseArena arena = registry.getPlugin().getArenaRegistry().getArena(player);
         if(arena == null) {
           return;
+        }
+        if(arena instanceof GuessArena guessArena){
+          if(!guessArena.getCurrentBuilders().contains(player)){
+            return;
+          }
         }
 
         Material material = itemStack.getType();

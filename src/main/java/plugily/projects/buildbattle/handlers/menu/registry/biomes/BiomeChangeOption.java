@@ -27,6 +27,7 @@ import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import plugily.projects.buildbattle.arena.BaseArena;
+import plugily.projects.buildbattle.arena.GuessArena;
 import plugily.projects.buildbattle.arena.managers.plots.Plot;
 import plugily.projects.buildbattle.handlers.menu.MenuOption;
 import plugily.projects.buildbattle.handlers.menu.OptionsRegistry;
@@ -64,6 +65,11 @@ public class BiomeChangeOption {
         BaseArena arena = registry.getPlugin().getArenaRegistry().getArena(player);
         if(arena == null) {
           return;
+        }
+        if(arena instanceof GuessArena guessArena){
+          if(!guessArena.getCurrentBuilders().contains(player)){
+            return;
+          }
         }
         Plot plot = arena.getPlotManager().getPlot(player);
         if(plot == null || plot.getCuboid() == null) {

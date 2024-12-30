@@ -24,6 +24,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import plugily.projects.buildbattle.api.event.guess.GuessRoundEndEvent;
 import plugily.projects.buildbattle.api.event.guess.PlayerGuessRightEvent;
 import plugily.projects.buildbattle.api.event.guess.PlayerThemeGuessEvent;
@@ -38,6 +40,7 @@ import plugily.projects.minigamesbox.classic.utils.version.VersionUtils;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * @author Tigerpanzer_02
@@ -46,219 +49,253 @@ import java.util.List;
  */
 public class GuessArena extends BaseArena {
 
-  private final List<Player> whoGuessed = new ArrayList<>();
-  private int round = 1;
-  private BBTheme currentTheme = null;
+    private final List<Player> whoGuessed = new ArrayList<>();
+    private int round = 1;
+    private BBTheme currentTheme = null;
 
-  private Plot buildPlot = null;
-  private List<Integer> removedCharsAt = new ArrayList<>();
+    private Plot buildPlot = null;
+    private List<Integer> removedCharsAt = new ArrayList<>();
 
-  private final int plotMemberSize = getArenaOption("PLOT_MEMBER_SIZE");
+    private final int plotMemberSize = getArenaOption("PLOT_MEMBER_SIZE");
 
-  private List<Plot> playedPlots = new ArrayList<>();
+    private List<Plot> playedPlots = new ArrayList<>();
 
-  private List<String> playedThemes = new ArrayList<>();
+    private List<String> playedThemes = new ArrayList<>();
 
-  public GuessArena(String id) {
-    super(id);
-    setArenaType(ArenaType.GUESS_THE_BUILD);
-    addGameStateHandler(IArenaState.IN_GAME, new InGameState());
-    addGameStateHandler(IArenaState.STARTING, new StartingState());
-    getPlugin().getDebugger().debug("Init Arena {0} with ArenaType {1}", getId(), getArenaType());
-  }
+    private List<UUID> hiddenPlayers = new ArrayList<>();
+    private List<UUID> hideTo = new ArrayList<>();
 
-  @Override
-  public void cleanUpArena() {
-    currentTheme = null;
-    round = 1;
-    whoGuessed.clear();
-    removedCharsAt.clear();
-    playedPlots.clear();
-    playedThemes.clear();
-    super.cleanUpArena();
-  }
-
-  @Override
-  public void distributePlots() {
-    int neededPlots = getPlayers().size() / plotMemberSize;
-    if(getPlotManager().getPlots().size() < neededPlots) {
-      getPlugin().getMessageUtils().errorOccurred();
-      getPlugin().getDebugger().sendConsoleMsg("&c[Build Battle] [PLOT WARNING] Not enough plots in arena " + getId() + "! Lacks " + (neededPlots - getPlotManager().getPlots().size()) + " plots");
-      getPlugin().getDebugger().sendConsoleMsg("&c[PLOT WARNING] Required " + neededPlots + " but have " + getPlotManager().getPlots().size());
-      getPlugin().getDebugger().sendConsoleMsg("&c[PLOT WARNING] Instance was stopped!");
-      getPlugin().getArenaManager().stopGame(true, this);
-    }
-    List<Player> players = new ArrayList<>(getPlayersLeft());
-    for(Plot plot : getPlotManager().getPlots()) {
-      if(players.isEmpty()) {
-        break;
-      }
-      if(!getPlugin().getUserManager().getUser(players.get(0)).isSpectator()) {
-        plot.addMember(players.remove(0), this, true);
-      }
-    }
-    for(Plot plot : getPlotManager().getPlots()) {
-      if(plot.getMembers().isEmpty()) {
-        continue;
-      }
-      for(Player member : plot.getMembers()) {
-        getPlotList().put(member, plot);
-      }
-    }
-    getPlotManager().teleportToPlots();
-  }
-
-
-  @Override
-  public boolean enoughPlayersToContinue() {
-    int size = getPlayers().size();
-
-    if(size > plotMemberSize) {
-      return true;
-    }
-    if(size == plotMemberSize) {
-      return !new HashSet<>(getPlotManager().getPlot(getPlayersLeft().get(0)).getMembers()).containsAll(getPlayers());
-    }
-    return false;
-  }
-
-  public void setNextPlot() {
-    List<Plot> plots = new ArrayList<>(getPlotList().values());
-    plots.removeAll(playedPlots);
-    if(plots.isEmpty()) {
-      plots = new ArrayList<>(getPlotList().values());
-      playedPlots.clear();
-    }
-    Plot nextPlot = plots.get(getPlugin().getRandom().nextInt(plots.size()));
-    playedPlots.add(nextPlot);
-    buildPlot = nextPlot;
-    getPlugin().getDebugger().debug("Arena {0} Next BuilderTeam is {1}", getId(), nextPlot.getFormattedMembers());
-    teleportPlayersToPlot(nextPlot);
-  }
-
-  public void resetBuildPlot() {
-    if(buildPlot != null) {
-      buildPlot.resetPlot();
-    }
-    getRemovedCharsAt().clear();
-    setBuildPlot(null);
-    setCurrentTheme(null);
-    getWhoGuessed().clear();
-    round += 1;
-    getPlayers().forEach(player -> getPlugin().getActionBarManager().clearActionBarsFromPlayer(player));
-  }
-
-  public void teleportPlayersToPlot(Plot plot) {
-    Location plotLoc = plot.getTeleportLocation();
-    for(Player player : getPlayers()) {
-      VersionUtils.teleport(player, plotLoc);
-      player.setPlayerWeather(plot.getWeatherType());
-      player.setPlayerTime(Plot.Time.format(plot.getTime(), player.getWorld().getTime()), false);
-      VersionUtils.setCollidable(player, false);
-      player.setGameMode(GameMode.ADVENTURE);
-      player.setAllowFlight(true);
-      player.setFlying(true);
-      player.getInventory().clear();
-      player.updateInventory();
-    }
-  }
-
-  @Override
-  public void setMinimumPlayers(int amount) {
-    if(amount <= plotMemberSize) {
-      getPlugin().getDebugger().debug("Minimum players amount for TEAM game mode arena cannot be less than 3! Setting amount to 3!");
-      setArenaOption("MINIMUM_PLAYERS", 3);
-      return;
-    }
-    super.setMinimumPlayers(amount);
-  }
-
-  public void addWhoGuessed(Player player) {
-    whoGuessed.add(player);
-    getPlugin().getRewardsHandler().performReward(player, this, getPlugin().getRewardsHandler().getRewardType("GUESS"), -1);
-
-    int timer = getTimer();
-
-    //decrease game time by guessed theme
-    if(timer >= 15) {
-      setTimer(timer - getPlugin().getConfig().getInt("Time-Manager." + getArenaType().getPrefix() + ".Guess"));
+    public GuessArena(String id) {
+        super(id);
+        setArenaType(ArenaType.GUESS_THE_BUILD);
+        addGameStateHandler(IArenaState.IN_GAME, new InGameState());
+        addGameStateHandler(IArenaState.STARTING, new StartingState());
+        getPlugin().getDebugger().debug("Init Arena {0} with ArenaType {1}", getId(), getArenaType());
     }
 
-    //-1 because builder can´t guess
-    if(whoGuessed.size() >= getPlayersLeft().size() - 1) {
-      setTimer(getPlugin().getConfig().getInt("Time-Manager." + getArenaType().getPrefix() + ".Round-Delay"));
-      setArenaInGameState(ArenaInGameState.PLOT_VOTING);
-
-      new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_GUESSED").asKey().arena(this).sendArena();
-
-      getPlugin().getRewardsHandler().performReward(this, getPlugin().getRewardsHandler().getRewardType("GUESS_ALL"));
-      Bukkit.getPluginManager().callEvent(new GuessRoundEndEvent(this, true));
+    @Override
+    public void cleanUpArena() {
+        currentTheme = null;
+        round = 1;
+        whoGuessed.clear();
+        removedCharsAt.clear();
+        playedPlots.clear();
+        playedThemes.clear();
+        super.cleanUpArena();
     }
-  }
 
-  public void broadcastPlayerGuessed(Player player) {
-    int guesserPos = whoGuessed.size() + 1;
-    var event = new PlayerGuessRightEvent(player,this.getPlayers(), guesserPos,this);
-    Bukkit.getPluginManager().callEvent(event);
-
-    int bonusAmount = getPlugin().getConfig().getInt("Guessing-Points." + (whoGuessed.size() + 1), 0);
-    int points = currentTheme.getDifficulty().getPointsReward() + bonusAmount;
-    getPlotManager().getPlot(player).addPoints(points);
-    buildPlot.addPoints(getPlugin().getConfig().getInt("Guessing-Points.Builder", 1));
-    new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_GUESS_GUESSED").asKey().arena(this).player(player).sendArena();
-    new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_GUESS_POINTS").asKey().integer(points).arena(this).player(player).sendPlayer();
-
-    addWhoGuessed(player);
-    Bukkit.getScheduler().runTask(getPlugin(), () -> Bukkit.getPluginManager().callEvent(new PlayerThemeGuessEvent(this, currentTheme)));
-  }
-
-  public BBTheme getCurrentBBTheme() {
-    return currentTheme;
-  }
-
-  public boolean isCurrentThemeSet() {
-    return currentTheme != null;
-  }
-
-  public List<Player> getCurrentBuilders() {
-    if(buildPlot == null) {
-      return new ArrayList<>();
+    @Override
+    public void distributePlots() {
+        int neededPlots = getPlayers().size() / plotMemberSize;
+        if (getPlotManager().getPlots().size() < neededPlots) {
+            getPlugin().getMessageUtils().errorOccurred();
+            getPlugin().getDebugger().sendConsoleMsg("&c[Build Battle] [PLOT WARNING] Not enough plots in arena " + getId() + "! Lacks " + (neededPlots - getPlotManager().getPlots().size()) + " plots");
+            getPlugin().getDebugger().sendConsoleMsg("&c[PLOT WARNING] Required " + neededPlots + " but have " + getPlotManager().getPlots().size());
+            getPlugin().getDebugger().sendConsoleMsg("&c[PLOT WARNING] Instance was stopped!");
+            getPlugin().getArenaManager().stopGame(true, this);
+        }
+        List<Player> players = new ArrayList<>(getPlayersLeft());
+        for (Plot plot : getPlotManager().getPlots()) {
+            if (players.isEmpty()) {
+                break;
+            }
+            if (!getPlugin().getUserManager().getUser(players.get(0)).isSpectator()) {
+                plot.addMember(players.remove(0), this, true);
+            }
+        }
+        for (Plot plot : getPlotManager().getPlots()) {
+            if (plot.getMembers().isEmpty()) {
+                continue;
+            }
+            for (Player member : plot.getMembers()) {
+                getPlotList().put(member, plot);
+            }
+        }
+        getPlotManager().teleportToPlots();
     }
-    return buildPlot.getMembers();
-  }
-
-  public Plot getBuildPlot() {
-    return buildPlot;
-  }
-
-  public void setBuildPlot(Plot buildPlot) {
-    this.buildPlot = buildPlot;
-  }
 
 
-  public List<String> getPlayedThemes() {
-    return playedThemes;
-  }
+    @Override
+    public boolean enoughPlayersToContinue() {
+        int size = getPlayers().size();
 
-  public int getRound() {
-    return round;
-  }
-
-  public void setCurrentTheme(BBTheme currentTheme) {
-    if(currentTheme == null) {
-      getPlugin().getDebugger().debug("Arena {0} set Theme null", getId());
-    } else {
-      getPlugin().getDebugger().debug("Arena {0} set Theme to {1} ({2})", getId(), currentTheme.getTheme(), currentTheme.getDifficulty());
+        if (size > plotMemberSize) {
+            return true;
+        }
+        if (size == plotMemberSize) {
+            return !new HashSet<>(getPlotManager().getPlot(getPlayersLeft().get(0)).getMembers()).containsAll(getPlayers());
+        }
+        return false;
     }
-    this.currentTheme = currentTheme;
-  }
 
-  public List<Player> getWhoGuessed() {
-    return whoGuessed;
-  }
+    public void setNextPlot() {
+        List<Plot> plots = new ArrayList<>(getPlotList().values());
+        plots.removeAll(playedPlots);
+        if (plots.isEmpty()) {
+            plots = new ArrayList<>(getPlotList().values());
+            playedPlots.clear();
+        }
+        Plot nextPlot = plots.get(getPlugin().getRandom().nextInt(plots.size()));
+        playedPlots.add(nextPlot);
+        buildPlot = nextPlot;
+        getPlugin().getDebugger().debug("Arena {0} Next BuilderTeam is {1}", getId(), nextPlot.getFormattedMembers());
+        teleportPlayersToPlot(nextPlot);
+    }
 
-  public List<Integer> getRemovedCharsAt() {
-    return removedCharsAt;
-  }
+    public void resetBuildPlot() {
+        if (buildPlot != null) {
+            buildPlot.resetPlot();
+        }
+        getRemovedCharsAt().clear();
+        setBuildPlot(null);
+        setCurrentTheme(null);
+        getWhoGuessed().clear();
+        round += 1;
+        getPlayers().forEach(player -> getPlugin().getActionBarManager().clearActionBarsFromPlayer(player));
+    }
+
+    public void teleportPlayersToPlot(Plot plot) {
+        Location plotLoc = plot.getTeleportLocation();
+        for (Player player : getPlayers()) {
+            VersionUtils.teleport(player, plotLoc);
+            player.setPlayerWeather(plot.getWeatherType());
+            player.setPlayerTime(Plot.Time.format(plot.getTime(), player.getWorld().getTime()), false);
+            VersionUtils.setCollidable(player, false);
+            player.setGameMode(GameMode.ADVENTURE);
+            player.setAllowFlight(true);
+            player.setFlying(true);
+            player.getInventory().clear();
+            player.updateInventory();
+        }
+    }
+
+    @Override
+    public void setMinimumPlayers(int amount) {
+        if (amount <= plotMemberSize) {
+            getPlugin().getDebugger().debug("Minimum players amount for TEAM game mode arena cannot be less than 3! Setting amount to 3!");
+            setArenaOption("MINIMUM_PLAYERS", 3);
+            return;
+        }
+        super.setMinimumPlayers(amount);
+    }
+
+    @Override
+    public void setArenaInGameState(ArenaInGameState state) {
+        super.setArenaInGameState(state);
+        if (state == ArenaInGameState.BUILD_TIME) {
+            for (UUID hiddenPlayer : hiddenPlayers) {
+                for (UUID hideTo : hideTo) {
+                    var hid = Bukkit.getPlayer(hiddenPlayer);
+                    var to = Bukkit.getPlayer(hideTo);
+                    if (hid == null || to == null) continue;
+                    to.showPlayer(getPlugin(),hid);
+                }
+            }
+            hideTo.clear();
+            hiddenPlayers.clear();
+            for (Player currentBuilder : getCurrentBuilders()) {
+                hideTo.add(currentBuilder.getUniqueId());
+                for (Player player : getPlayersLeft()) {
+                    if(getCurrentBuilders().contains(player)) continue;
+                    currentBuilder.hidePlayer(getPlugin(), player);
+                    hiddenPlayers.add(player.getUniqueId());
+                }
+            }
+        }
+
+    }
+
+    public void addWhoGuessed(Player player) {
+        whoGuessed.add(player);
+        getPlugin().getRewardsHandler().performReward(player, this, getPlugin().getRewardsHandler().getRewardType("GUESS"), -1);
+
+        int timer = getTimer();
+
+        //decrease game time by guessed theme
+        if (timer >= 15) {
+            setTimer(timer - getPlugin().getConfig().getInt("Time-Manager." + getArenaType().getPrefix() + ".Guess"));
+        }
+
+        //-1 because builder can´t guess
+        if (whoGuessed.size() >= getPlayersLeft().size() - 1) {
+            setTimer(getPlugin().getConfig().getInt("Time-Manager." + getArenaType().getPrefix() + ".Round-Delay"));
+            setArenaInGameState(ArenaInGameState.PLOT_VOTING);
+
+            new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_GUESSED").asKey().arena(this).sendArena();
+
+            getPlugin().getRewardsHandler().performReward(this, getPlugin().getRewardsHandler().getRewardType("GUESS_ALL"));
+            var currentBuilders = new ArrayList<>(this.getCurrentBuilders());
+            var playersLeft = new ArrayList<>(this.getPlayersLeft());
+            var guessed = new ArrayList<>(whoGuessed);
+            Bukkit.getScheduler().runTask(getPlugin(), () -> {
+                Bukkit.getPluginManager().callEvent(new GuessRoundEndEvent(this, currentBuilders, playersLeft, guessed, true));
+            });
+        }
+    }
+
+    public void broadcastPlayerGuessed(Player player) {
+        int guesserPos = whoGuessed.size() + 1;
+        var event = new PlayerGuessRightEvent(player, this.getCurrentBuilders(), guesserPos, this);
+        Bukkit.getPluginManager().callEvent(event);
+
+        int bonusAmount = getPlugin().getConfig().getInt("Guessing-Points." + (whoGuessed.size() + 1), 0);
+        int points = currentTheme.getDifficulty().getPointsReward() + bonusAmount;
+        getPlotManager().getPlot(player).addPoints(points);
+        buildPlot.addPoints(getPlugin().getConfig().getInt("Guessing-Points.Builder", 1));
+        new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_GUESS_GUESSED").asKey().arena(this).player(player).sendArena();
+        new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_GUESS_POINTS").asKey().integer(points).arena(this).player(player).sendPlayer();
+
+        addWhoGuessed(player);
+        Bukkit.getScheduler().runTask(getPlugin(), () -> Bukkit.getPluginManager().callEvent(new PlayerThemeGuessEvent(this, currentTheme)));
+    }
+
+    public BBTheme getCurrentBBTheme() {
+        return currentTheme;
+    }
+
+    public boolean isCurrentThemeSet() {
+        return currentTheme != null;
+    }
+
+    public List<Player> getCurrentBuilders() {
+        if (buildPlot == null) {
+            return new ArrayList<>();
+        }
+        return buildPlot.getMembers();
+    }
+
+    public Plot getBuildPlot() {
+        return buildPlot;
+    }
+
+    public void setBuildPlot(Plot buildPlot) {
+        this.buildPlot = buildPlot;
+    }
+
+
+    public List<String> getPlayedThemes() {
+        return playedThemes;
+    }
+
+    public int getRound() {
+        return round;
+    }
+
+    public void setCurrentTheme(BBTheme currentTheme) {
+        if (currentTheme == null) {
+            getPlugin().getDebugger().debug("Arena {0} set Theme null", getId());
+        } else {
+            getPlugin().getDebugger().debug("Arena {0} set Theme to {1} ({2})", getId(), currentTheme.getTheme(), currentTheme.getDifficulty());
+        }
+        this.currentTheme = currentTheme;
+    }
+
+    public List<Player> getWhoGuessed() {
+        return whoGuessed;
+    }
+
+    public List<Integer> getRemovedCharsAt() {
+        return removedCharsAt;
+    }
 
 }

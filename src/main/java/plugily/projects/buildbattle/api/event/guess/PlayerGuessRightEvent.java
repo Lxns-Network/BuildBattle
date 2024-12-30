@@ -8,6 +8,7 @@ import plugily.projects.buildbattle.arena.GuessArena;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 public class PlayerGuessRightEvent extends Event {
@@ -19,10 +20,10 @@ public class PlayerGuessRightEvent extends Event {
 
     public PlayerGuessRightEvent(Player player, Collection<Player> builders, int guesserPosition, GuessArena arena) {
         super(true);
-        this.player = player;
-        this.builders = builders;
+        this.player = Objects.requireNonNull(player);
+        this.builders = Objects.requireNonNull(builders);
         this.guesserPosition = guesserPosition;
-        this.arena = arena;
+        this.arena = Objects.requireNonNull(arena);
     }
 
     public GuessArena getArena() {
@@ -47,6 +48,6 @@ public class PlayerGuessRightEvent extends Event {
 
     @Override
     public @NotNull HandlerList getHandlers() {
-        return null;
+        return HANDLERS;
     }
 }
