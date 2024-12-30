@@ -73,7 +73,8 @@ public class ArenaEvents extends PluginArenaEvents {
         }
         if (arena.getArenaState() == IArenaState.IN_GAME && (arena instanceof GuessArena guessArena && guessArena.getArenaInGameState() == BaseArena.ArenaInGameState.BUILD_TIME)) {
             var lc = event.getMessage().toLowerCase();
-            if (lc.contains("tell") || lc.contains("me") || lc.contains("say") || lc.contains("whisper")
+            if(lc.startsWith("minecraft:")) lc = lc.substring(10);
+            if (lc.startsWith("tell") || lc.startsWith("me") || lc.startsWith("say") || lc.startsWith("whisper")
                     || lc.startsWith("t ")) {
                 event.getPlayer().sendMessage("请不要使用私聊命令。");
                 event.setCancelled(true);
