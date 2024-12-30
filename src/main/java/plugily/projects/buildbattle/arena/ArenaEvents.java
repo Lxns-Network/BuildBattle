@@ -611,7 +611,7 @@ public class ArenaEvents extends PluginArenaEvents {
         if (!(arena instanceof GuessArena)) {
             return;
         }
-        if (arena.getArenaState() != IArenaState.IN_GAME) {
+        if (arena.getArenaState() != IArenaState.IN_GAME || arena.getArenaInGameState() != BaseArena.ArenaInGameState.BUILD_TIME) {
             return;
         }
         if (arena.getSpectators().contains(player)) {
