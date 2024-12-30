@@ -243,7 +243,7 @@ public class GuessArena extends BaseArena {
         getPlotManager().getPlot(player).addPoints(points);
         buildPlot.addPoints(getPlugin().getConfig().getInt("Guessing-Points.Builder", 1));
         new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_GUESS_GUESSED").asKey().arena(this).player(player).sendArena();
-        new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_GUESS_POINTS").asKey().integer(points).arena(this).player(player).sendPlayer();
+        //new MessageBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_GUESS_POINTS").asKey().integer(points).arena(this).player(player).sendPlayer();
 
         addWhoGuessed(player);
         Bukkit.getScheduler().runTask(getPlugin(), () -> Bukkit.getPluginManager().callEvent(new PlayerThemeGuessEvent(this, currentTheme)));
