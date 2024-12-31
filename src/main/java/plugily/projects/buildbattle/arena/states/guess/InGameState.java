@@ -25,6 +25,7 @@ import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
 import plugily.projects.buildbattle.Main;
 import plugily.projects.buildbattle.api.event.guess.GuessRoundEndEvent;
 import plugily.projects.buildbattle.arena.BaseArena;
@@ -63,9 +64,22 @@ public class InGameState extends PluginInGameState {
                 if (pluginArena.getBuildPlot() == null) {
                     pluginArena.setNextPlot();
                     new TitleBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_BEING_SELECTED").asKey().arena(pluginArena).sendArena();
-                    Bukkit.getScheduler().runTaskLater(getPlugin(), () -> {
-                        openThemeSelectionInventoryToCurrentBuilder(pluginArena);
-                    },10L);
+                    new BukkitRunnable() {
+                        @Override
+                        public void run() {
+                            if(!pluginArena.isCurrentThemeSet() && arena.getTimer() >= 2){
+                                if(!pluginArena.getCurrentBuilders().isEmpty()){
+                                    openThemeSelectionInventoryToCurrentBuilder(pluginArena);
+                                    cancel();
+                                }
+                            }else{
+                                cancel();
+                            }
+                        }
+                    }.runTaskTimer(getPlugin(),0L,10L);
+//                    Bukkit.getScheduler().runTaskLater(getPlugin(), () -> {
+//                        openThemeSelectionInventoryToCurrentBuilder(pluginArena);
+//                    },10L);
                     break;
                 }
 
@@ -76,6 +90,7 @@ public class InGameState extends PluginInGameState {
                     new TitleBuilder("IN_GAME_MESSAGES_PLOT_GTB_THEME_GUESS_TITLE").asKey().arena(pluginArena).sendArena();
 
                     Bukkit.getScheduler().runTaskLater(getPlugin(), () -> pluginArena.getCurrentBuilders().forEach(player -> player.setGameMode(GameMode.CREATIVE)), 40);
+                    Bukkit.getScheduler().runTaskLater(getPlugin(), () -> pluginArena.getCurrentBuilders().forEach(HumanEntity::closeInventory), 40);
 
                     setArenaTimer(getPlugin().getConfig().getInt("Time-Manager." + pluginArena.getArenaType().getPrefix() + ".In-Game"));
                     pluginArena.setArenaInGameState(BaseArena.ArenaInGameState.BUILD_TIME);
